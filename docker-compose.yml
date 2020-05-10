@@ -1,0 +1,100 @@
+version: '2.2'
+
+services:
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:5.5.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  kafka-1:
+    image: confluentinc/cp-kafka:5.5.0
+    container_name: kafka-1
+    depends_on:
+      - zookeeper
+    ports:
+      - 9092:9092
+    healthcheck:
+      test: "/usr/bin/kafka-topics --list --zookeeper zookeeper:2181"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-1:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+  kafka-2:
+    image: confluentinc/cp-kafka:5.5.0
+    container_name: kafka-2
+    depends_on:
+      - zookeeper
+    ports:
+      - 9093:9093
+    healthcheck:
+      test: "/usr/bin/kafka-topics --list --zookeeper zookeeper:2181"
+    environment:
+      KAFKA_BROKER_ID: 2
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-2:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+  kafka-topics:
+    image: confluentinc/cp-kafka:5.5.0
+    container_name: kafka-topics
+    depends_on:
+      kafka-1:
+        condition: service_healthy
+    command: "bash -c 'echo creating topics && \
+      kafka-topics --bootstrap-server kafka-1:9092 --create --topic customer_topic && \
+      kafka-topics --bootstrap-server kafka-1:9092 --create --topic customer_analysis_topic'"
+
+  spring-boot:
+    build: spring-boot
+    container_name: spring-boot
+    depends_on:
+      kafka-1:
+        condition: service_healthy
+    ports:
+      - 8080:8080
+
+  kafka-streams:
+    build: kafka-streams
+    container_name: kafka-streams
+    depends_on:
+      - kafka-topics
+
+  akka-streams:
+    build: akka-streamss
+    container_name: akka-streams
+    depends_on:
+      - kafka-topics
+      - es01
+
+  kafka-python:
+    build: python
+    container_name: kafka-python
+    depends_on:
+      - kafka-topics
+
+  es01:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.6.2
+    container_name: es01
+    environment:
+      - node.name=es01
+      - cluster.name=es-docker-cluster
+      - cluster.initial_master_nodes=es01
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+#    volumes:
+#      - data01:/usr/share/elasticsearch/data
+    ports:
+      - 9200:9200
