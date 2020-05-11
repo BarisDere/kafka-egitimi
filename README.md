@@ -1,12 +1,16 @@
 # kafka-egitimi
 
-# Projenin anlatıldığı youtube videom:  https://www.youtube.com/watch?v=Ej-HcZd-Alo
+### Projenin anlatıldığı youtube videom:  https://www.youtube.com/watch?v=Ej-HcZd-Alo
 
-mvn clean install
+### Set up
 
-docker-compose up --build -d
+    mvn clean install
 
-# -XPOST http://localhost:8080/customers
+    docker-compose up --build -d
+
+### Create Customer
+
+    -XPOST http://localhost:8080/customers
     {
 	     "id" : 7584,
 	     "firstName": "Baris",
@@ -14,4 +18,6 @@ docker-compose up --build -d
 	     "metaInformation" : "test5 test6"
     }
     
-# http://localhost:9200/systemindex/_search    
+### Search elasticsearch 
+
+    http://localhost:9200/systemindex/_search    
